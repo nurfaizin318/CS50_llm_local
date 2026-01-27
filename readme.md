@@ -1,5 +1,6 @@
 # Local LLM Chat Application
 
+## Video Demo : https://youtu.be/ck39K0Dcbec
 ## Description
 This project is a web-based chat application similar to ChatGPT that runs a local Large Language Model using MLX on Apple Silicon.
 
