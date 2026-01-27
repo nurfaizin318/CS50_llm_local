@@ -1,0 +1,8 @@
+flask
+flask-jwt-extended
+werkzeug
+mlx
+mlx-lm
+huggingface_hub
+mysql-connector-python
+flask-cors

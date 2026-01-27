@@ -1,0 +1,263 @@
+{% extends "layout.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+
+<body class="bg-gray-50">
+    <nav class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-brain text-2xl text-blue-600 mr-2"></i>
+                    <span class="text-xl font-bold text-gray-900">Local LLM Inference</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <form action="{{ url_for('logout') }}" method="POST" style="display: inline;">
+                        <button type="submit" 
+                                class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center">
+                            <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="chat-container">
+        <!-- History Panel -->
+        <div class="history-panel bg-white hidden md:block">
+            <div class="p-4 border-b border-gray-200">
+                <button id="newChatBtn" class="new-chat-btn">
+                    <i class="fas fa-plus mr-2"></i>New Chat
+                </button>
+            </div>
+            <div id="historyList" class="divide-y divide-gray-200 overflow-y-auto max-h-full"></div>
+        </div>
+
+        <!-- Main Chat -->
+        <div class="main-chat">
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages will be loaded here -->
+                <div class="message bot-message">
+                    Halo! Saya adalah AI assistant lokal. Ada yang bisa saya bantu?
+                </div>
+            </div>
+
+            <div class="input-container">
+                <div class="input-box">
+                    <textarea id="messageInput" class="message-input" placeholder="Ketik pesan Anda di sini..."
+                        rows="1"></textarea>
+                    <button id="sendButton" class="send-button" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane mr-2"></i>Send
+                    </button>
+                </div>
+                <div class="text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Tekan Ctrl+Enter untuk mengirim pesan
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChatId = 'default';
+        let isLoading = false;
+        var conversation_id = null
+        let currentConversationId = null;
+        let newChat = false
+
+
+        // Auto-resize textarea
+        const textarea = document.getElementById('messageInput');
+        textarea.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Send message on Ctrl+Enter
+        textarea.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Load chat history
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/history');
+                if (!response.ok) throw new Error('Gagal memuat history');
+
+                const conversations = await response.json(); // array of {id, title, created_at}
+
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = '';
+
+                if (conversations.length === 0) {
+                    historyList.innerHTML = `
+                <div class="px-4 py-6 text-center text-gray-500 text-sm">
+                    Belum ada riwayat chat
+                </div>
+            `;
+                    return;
+                }
+
+                conversations.forEach(conv => {
+                    const isActive = conv.id == currentConversationId;
+                    const item = document.createElement('div');
+                    item.className = `history-item px-4 py-3 cursor-pointer hover:bg-gray-50 transition flex flex-col ${isActive ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                        }`;
+                    item.innerHTML = `
+                <div class="font-medium text-gray-900 line-clamp-1">
+                    ${conv.title || 'Chat baru'}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                    ${new Date(conv.created_at).toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    })}
+                </div>
+            `;
+                    item.onclick = () => loadChat(conv.id);
+                    historyList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading history:', error);
+                document.getElementById('historyList').innerHTML = `
+            <div class="px-4 py-6 text-center text-red-500 text-sm">
+                Gagal memuat riwayat
+            </div>
+        `;
+            }
+        }
+        // Load specific chat
+        async function loadChat(chatId) {
+            currentChatId = chatId;
+            loadChatHistory();
+
+            try {
+                const response = await fetch(`/history/${chatId}`);
+                const data = await response.json();
+
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+
+                data.forEach(message => {
+                    console
+                    addMessage(message.content, message.role === 'user');
+                });
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } catch (error) {
+                console.error('Error loading chat:', error);
+            }
+        }
+
+        // Add message to chat
+        function addMessage(content, isUser = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = content;
+            chatMessages.appendChild(messageDiv);
+
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message || isLoading) return;
+
+            isLoading = true;
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+
+
+            addMessage(message, true);
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: message,
+                        new_conversation_id: 1,
+                        new_chat: newChat
+                    })
+                });
+
+                const data = await response.json();
+                console.log(data.success)
+                if (data.success) {
+                    addMessage(data.assistant_message, false);
+                } else {
+                    addMessage('Maaf, terjadi error: ' + data.error, false);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Maaf, terjadi error saat mengirim pesan.', false);
+            } finally {
+                isLoading = false;
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send';
+            }
+        }
+
+
+        document.getElementById('newChatBtn').addEventListener('click', () => {
+
+            currentChatId = 'chat_' + Date.now().toString(36);
+            newChat = true;
+
+            showWelcomeView();
+
+
+            document.getElementById('messageInput').value = '';
+            document.getElementById('messageInput').style.height = 'auto';
+
+
+            loadChatHistory();
+        });
+
+
+        window.onload = async () => {
+
+            loadChatHistory();
+            document.getElementById('messageInput').focus();
+        };
+
+
+        function showWelcomeView() {
+            const chatMessages = document.getElementById('chatMessages');
+
+            chatMessages.innerHTML = '';
+
+
+            chatMessages.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-gray-600 px-4">
+            <div class="mb-8 p-4 bg-blue-50 rounded-full">
+                <i class="fas fa-brain text-3xl text-blue-600"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Halo! Saya AI Assistant Lokal Anda</h2>
+            
+        
+        </div>
+    `;
+        }
+
+
+    </script>
+</body>
+
+{% endblock %}
