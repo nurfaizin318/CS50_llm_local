@@ -1,9 +1,9 @@
 
 # Local LLM Chat Application
 
-[Video Demo](https://youtu.be/ck39K0Dcbec)
+### Video Demo: (https://youtu.be/ck39K0Dcbec)
 
-## Project Description
+### Description
 Local LLM Chat Application adalah platform percakapan berbasis web yang memungkinkan pengguna berinteraksi dengan Large Language Model (LLM) secara **privat dan offline**. Proyek ini memanfaatkan **MLX** untuk mengoptimalkan performa model AI pada perangkat keras **Apple Silicon**.
 
 Aplikasi ini juga menyediakan sistem manajemen pengguna lengkap, termasuk registrasi, autentikasi berbasis JWT, dan penyimpanan riwayat percakapan yang persisten menggunakan **MySQL**. Antarmuka pengguna menggunakan **Tailwind CSS** untuk pengalaman modern, responsif, dan mirip ChatGPT.
